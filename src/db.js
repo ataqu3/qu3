@@ -2,7 +2,7 @@
 // Provides instant offline-first storage in localStorage + real-time multi-device cloud synchronization
 // Works with Cloudflare Pages Functions and Vercel Functions (/api/data) cloud sync
 
-import { USERS, CATEGORIES, MOBIL_SUB_CATEGORIES, DSL_SPEEDS } from './constants';
+import { USERS, CATEGORIES, MOBIL_SUB_CATEGORIES, DSL_SPEEDS, getCurrentMonth, getDaysInMonth, getLocalDayKey } from './constants';
 
 const DB_PREFIX = 'bvb_hedef_';
 const getKey = (key) => `${DB_PREFIX}${key}`;
@@ -66,6 +66,7 @@ export const addTransaction = (transaction) => {
     ...transaction,
     id: Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8),
     createdAt: new Date().toISOString(),
+    dayKey: getLocalDayKey(),
   };
   transactions.push(newTransaction);
   localStorage.setItem(getKey('transactions'), JSON.stringify(transactions));
@@ -199,6 +200,76 @@ export const getSubCategoryLeaders = (month) => {
       }))
     ),
   }));
+};
+
+// DAILY / MONTHLY VIEW HELPERS
+// Bir işlemin hangi güne ait olduğunu döner (yerel gün; eski kayıtlarda createdAt'ten hesaplanır)
+export const getTransactionDayKey = (tx) => tx.dayKey || getLocalDayKey(tx.createdAt);
+
+// Belirtilen güne ait işlemler (en yeniden en eskiye)
+export const getDayTransactions = (dayKey) => {
+  if (!dayKey) return [];
+  const month = dayKey.slice(0, 7);
+  return getTransactions(month)
+    .filter(tx => getTransactionDayKey(tx) === dayKey)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+};
+
+// Belirtilen günün kategori bazlı özeti
+export const getDayTotals = (dayKey) => {
+  const list = getDayTransactions(dayKey);
+  const categories = {};
+  CATEGORIES.forEach(cat => { categories[cat.key] = 0; });
+  list.forEach(tx => {
+    if (categories[tx.category] !== undefined) categories[tx.category] += 1;
+  });
+  return { total: list.length, categories };
+};
+
+// Ayın her günü için işlem sayısı (toplu aylık görünüm / gün grafiği)
+export const getDailyBreakdown = (month) => {
+  const transactions = getTransactions(month);
+  const counts = new Map();
+
+  transactions.forEach(tx => {
+    const dayKey = getTransactionDayKey(tx);
+    if (!dayKey || !dayKey.startsWith(month)) return;
+    counts.set(dayKey, (counts.get(dayKey) || 0) + 1);
+  });
+
+  const result = [];
+  const dayCount = getDaysInMonth(month);
+  for (let day = 1; day <= dayCount; day++) {
+    const dayKey = `${month}-${String(day).padStart(2, '0')}`;
+    result.push({ dayKey, day, count: counts.get(dayKey) || 0 });
+  }
+  return result;
+};
+
+// Ayın hedefleri girilmiş mi? (hedef girilene kadar işlemler "bekleyen" sayılır)
+export const hasTargets = (month) => {
+  const targets = getTargets(month);
+  return Object.values(targets || {}).some(value => (value || 0) > 0);
+};
+
+// Ay listesi + işlem sayısı (geçmiş ayları görebilmek için; en yeni ay başta)
+export const getMonthSummaries = () => {
+  const months = new Set();
+
+  getAllTransactions().forEach(tx => { if (tx.month) months.add(tx.month); });
+
+  const targets = JSON.parse(localStorage.getItem(getKey('targets')) || '{}');
+  Object.keys(targets).forEach(month => { if (month) months.add(month); });
+
+  months.add(getCurrentMonth());
+
+  return Array.from(months)
+    .sort((a, b) => (a < b ? 1 : -1))
+    .map(month => ({
+      month,
+      count: getTransactions(month).length,
+      hasTargets: hasTargets(month),
+    }));
 };
 
 // INDIVIDUAL TARGETS (Total targets divided equally by 4 employees)

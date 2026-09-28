@@ -6,7 +6,8 @@ import {
   getRecentActivity, 
   getTransactions, 
   getIndividualTargets, 
-  getUserCategoryTotals 
+  getUserCategoryTotals,
+  hasTargets
 } from '../db';
 import { CATEGORIES, USERS, USER_AVATARS, USER_COLORS, CATEGORY_MAP, formatMonth, getTimeAgo } from '../constants';
 
@@ -22,6 +23,8 @@ export default function Dashboard({ currentUser, month }) {
   const leaderboard = getLeaderboard(month);
   const recentActivity = getRecentActivity(month, 20);
   const allTx = getTransactions(month);
+  // Hedefler (ayın 6-7'sinde) girilmediyse işlemler "bekleyen" olarak gösterilir
+  const targetsReady = hasTargets(month);
 
   // Active targets and totals based on viewMode
   const activeTargets = viewMode === 'personal' ? indTargets : teamTargets;
@@ -123,38 +126,53 @@ export default function Dashboard({ currentUser, month }) {
           </div>
           <div className="text-right">
             <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full ${
-              remainingTotal === 0
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                : 'bg-primary-500/20 text-primary-300 border border-primary-500/30'
+              !targetsReady
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                : remainingTotal === 0
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                  : 'bg-primary-500/20 text-primary-300 border border-primary-500/30'
             }`}>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-              {remainingTotal === 0 ? '🎉 Bitti!' : `${remainingTotal} Kalan`}
+              <span className={`w-1.5 h-1.5 rounded-full animate-ping ${targetsReady ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+              {!targetsReady ? '🎯 Hedef Bekleniyor' : remainingTotal === 0 ? '🎉 Bitti!' : `${remainingTotal} Kalan`}
             </span>
           </div>
         </div>
 
         {/* Progress Bar & Big Numbers */}
         <div className="space-y-2">
-          <div className="flex items-baseline justify-between text-xs">
-            <span className="text-surface-200/70 font-semibold">
-              Yapılan: <b className="text-white text-sm">{totalDone}</b> / {totalTarget}
-            </span>
-            <span className="text-primary-300 font-black text-base">%{overallPercent}</span>
-          </div>
+          {targetsReady ? (
+            <>
+              <div className="flex items-baseline justify-between text-xs">
+                <span className="text-surface-200/70 font-semibold">
+                  Yapılan: <b className="text-white text-sm">{totalDone}</b> / {totalTarget}
+                </span>
+                <span className="text-primary-300 font-black text-base">%{overallPercent}</span>
+              </div>
 
-          <div className="h-3 bg-surface-800/80 rounded-full overflow-hidden p-0.5 border border-primary-500/20">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-primary-500 via-indigo-500 to-emerald-400 transition-all duration-1000 ease-out shadow-lg shadow-primary-500/40"
-              style={{ width: `${overallPercent}%` }}
-            />
-          </div>
+              <div className="h-3 bg-surface-800/80 rounded-full overflow-hidden p-0.5 border border-primary-500/20">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-primary-500 via-indigo-500 to-emerald-400 transition-all duration-1000 ease-out shadow-lg shadow-primary-500/40"
+                  style={{ width: `${overallPercent}%` }}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1">
+              <p className="text-[11px] font-bold text-amber-300">🎯 {formatMonth(month)} hedefleri henüz girilmedi</p>
+              <p className="text-[11px] text-surface-200/70 leading-relaxed">
+                Hedefler genelde ayın 6-7'sinde belirlenir. Şu ana kadar girilen{' '}
+                <b className="text-white">{totalDone}</b> işlem kayıtlı; hedefler admin panelinden girildiği an
+                bu işlemler <b className="text-white">otomatik olarak hedeften düşecek</b>.
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-2 pt-2 text-center">
             <div className="p-2 rounded-xl bg-surface-800/40 border border-surface-700/30">
               <p className="text-[9px] text-surface-200/50 uppercase font-semibold">
                 {viewMode === 'personal' ? 'Senin Hedefin' : 'Ekip Hedefi'}
               </p>
-              <p className="text-base font-black text-white">{totalTarget}</p>
+              <p className="text-base font-black text-white">{targetsReady ? totalTarget : '—'}</p>
             </div>
             <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
               <p className="text-[9px] text-emerald-400 uppercase font-semibold">
@@ -166,7 +184,7 @@ export default function Dashboard({ currentUser, month }) {
               <p className="text-[9px] text-amber-400 uppercase font-bold">
                 {viewMode === 'personal' ? 'Kalan Hedefin' : 'Kalan Hedef'}
               </p>
-              <p className="text-base font-black text-amber-300 count-animate">{remainingTotal}</p>
+              <p className="text-base font-black text-amber-300 count-animate">{targetsReady ? remainingTotal : '—'}</p>
             </div>
           </div>
         </div>

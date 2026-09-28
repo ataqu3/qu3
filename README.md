@@ -46,6 +46,13 @@ Bu uygulama, **B ve B Bilişim** ekibinin (Atakan, Murat, Büşra ve Eda) aylık
    - Kart içinde 4 çalışanın kişi bazlı dağılım çubukları gösterilir (lider çubuk altın renkli).
    - **İşlem türü sıralaması** paneli: Yeni Hat, Numara Taşıma, Sponsor ve 16–1000 Mbps DSL paketlerinde en çok / en az yapanlar.
 
+9. **📅 Günlük Sayfa & Aylık Döngü:**
+   - **"Günlük"** sekmesi her gün **tertemiz bir sayfa** açar: o güne ait işlemler, gün toplamı ve kategori dağılımı. ◀ ▶ ile günler arasında gezinebilir, "Bugünün sayfasına dön" butonuyla anında bugüne dönebilirsiniz.
+   - Aynı sekmedeki **"Tüm Ay"** görünümü, o ayın bütün işlemlerini arama, kişi/kategori filtresi ve silme özellikleriyle birlikte listeler.
+   - **Toplu ay özeti:** Kategori bazlı yapılan / hedef çubukları ve ayın **günlük dağılım grafiği** (bir güne dokunarak o günün sayfasını açabilirsiniz).
+   - **Her ayın 1'inde otomatik olarak yeni ay başlar** (işlemler yeni aya yazılır), geçmiş aylar silinmez. Panel / Günlük / Liderler sayfalarındaki **ay seçiciden** istenilen geçmiş ay incelenebilir.
+   - **Hedef mantığı:** İşlemler ayın 1'inden itibaren girilmeye başlar, hedefler ise ayın 6-7'sinde girilir. Hedefler girilene kadar panelde **"🎯 Hedef Bekleniyor"** uyarısı ve "girilen işlemler hedef girilince otomatik düşecek" bilgisi görünür. Admin hedefleri kaydettiği **an** o ayda daha önce girilmiş tüm işlemler **geçmişe dönük olarak** hedeften düşülür.
+
 ---
 
 ## 🛠️ Nasıl Çalıştırılır?

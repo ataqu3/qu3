@@ -1,21 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
-import { USERS, USER_AVATARS, USER_COLORS, getCurrentMonth } from './constants';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { USERS, USER_AVATARS, USER_COLORS, formatMonth, getCurrentMonth } from './constants';
 import UserSelect from './components/UserSelect';
 import Dashboard from './components/Dashboard';
 import AddTransaction from './components/AddTransaction';
-import TransactionHistory from './components/TransactionHistory';
 import CategoryLeaders from './components/CategoryLeaders';
+import DailyLog from './components/DailyLog';
+import MonthSelector from './components/MonthSelector';
 import AdminPanel from './components/AdminPanel';
 import BottomNav from './components/BottomNav';
 import Toast from './components/Toast';
-import { useDBListener, getSyncStatus } from './db';
+import { useDBListener, getSyncStatus, getMonthSummaries } from './db';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     return localStorage.getItem('bvb_current_user') || null;
   });
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [currentMonth] = useState(getCurrentMonth());
+  const [currentMonth, setCurrentMonth] = useState(getCurrentMonth());
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
+  const knownMonthRef = useRef(getCurrentMonth());
   const [toasts, setToasts] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [syncStatus, setSyncStatus] = useState(getSyncStatus());
@@ -44,6 +47,25 @@ export default function App() {
     }, 3200);
   }, []);
 
+  // Ayın 1'inde otomatik olarak yeni aya geçilir: işlemler yeni aya yazılır, geçmiş ay arşivde kalır
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const nowMonth = getCurrentMonth();
+      if (nowMonth === knownMonthRef.current) return;
+
+      const wasViewingPreviousMonth = selectedMonth === knownMonthRef.current;
+      knownMonthRef.current = nowMonth;
+      setCurrentMonth(nowMonth);
+      if (wasViewingPreviousMonth) setSelectedMonth(nowMonth);
+      addToast(`Yeni ay başladı: ${formatMonth(nowMonth)} 🎉`, 'success');
+    }, 60000);
+
+    return () => clearInterval(timer);
+  }, [selectedMonth, addToast]);
+
+  const monthSummaries = getMonthSummaries();
+  const showMonthSelector = activeTab === 'dashboard' || activeTab === 'daily' || activeTab === 'leaders';
+
   const handleUserSelect = (user) => {
     setCurrentUser(user);
     localStorage.setItem('bvb_current_user', user);
@@ -64,17 +86,25 @@ export default function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard key={refreshKey} currentUser={currentUser} month={currentMonth} />;
+        return <Dashboard key={`${selectedMonth}-${refreshKey}`} currentUser={currentUser} month={selectedMonth} />;
       case 'add':
         return <AddTransaction currentUser={currentUser} month={currentMonth} addToast={addToast} />;
+      case 'daily':
       case 'history':
-        return <TransactionHistory key={refreshKey} currentUser={currentUser} month={currentMonth} addToast={addToast} />;
+        return (
+          <DailyLog
+            key={`${selectedMonth}-${refreshKey}`}
+            currentUser={currentUser}
+            month={selectedMonth}
+            addToast={addToast}
+          />
+        );
       case 'leaders':
-        return <CategoryLeaders key={refreshKey} month={currentMonth} />;
+        return <CategoryLeaders key={`${selectedMonth}-${refreshKey}`} month={selectedMonth} />;
       case 'admin':
         return <AdminPanel key={refreshKey} month={currentMonth} addToast={addToast} />;
       default:
-        return <Dashboard key={refreshKey} currentUser={currentUser} month={currentMonth} />;
+        return <Dashboard key={`${selectedMonth}-${refreshKey}`} currentUser={currentUser} month={selectedMonth} />;
     }
   };
 
@@ -112,6 +142,16 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="max-w-lg mx-auto px-4 py-4 animate-fade-in">
+        {showMonthSelector && (
+          <div className="mb-3">
+            <MonthSelector
+              month={selectedMonth}
+              months={monthSummaries}
+              currentMonth={currentMonth}
+              onChange={setSelectedMonth}
+            />
+          </div>
+        )}
         {renderContent()}
       </main>
 

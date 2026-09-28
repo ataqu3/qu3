@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { addTransaction, deleteTransaction } from '../db';
-import { CATEGORIES, MOBIL_SUB_CATEGORIES, DSL_SPEEDS, CATEGORY_MAP } from '../constants';
+import { CATEGORIES, MOBIL_SUB_CATEGORIES, DSL_SPEEDS, CATEGORY_MAP, formatMonth } from '../constants';
 
 export default function AddTransaction({ currentUser, month, addToast }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -113,6 +113,12 @@ export default function AddTransaction({ currentUser, month, addToast }) {
       <div className="text-center">
         <h2 className="text-lg font-black text-white">Yeni İşlem Kaydı</h2>
         <p className="text-xs text-surface-200/50">Yaptığın işlemi seç ve kaydet, anında hedeften düşsün</p>
+      </div>
+
+      {/* Kayıt ayı bilgisi */}
+      <div className="glass-card p-2.5 flex items-center justify-between border-primary-500/20">
+        <span className="text-[10px] text-surface-200/60 font-semibold">📅 Kayıt Yapılacak Ay</span>
+        <span className="text-[11px] font-black text-primary-300">{formatMonth(month)}</span>
       </div>
 
       {/* 1. Category Selection */}

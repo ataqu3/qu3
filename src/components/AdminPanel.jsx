@@ -8,7 +8,8 @@ import {
   exportData, 
   importData, 
   resetAllData, 
-  getSyncStatus 
+  getSyncStatus,
+  getMonthSummaries
 } from '../db';
 import { 
   CATEGORIES, 
@@ -20,6 +21,7 @@ import {
   formatMonth, 
   formatDate, 
   getCurrentMonth,
+  shiftMonth,
   MOBIL_SUB_CATEGORIES,
   DSL_SPEEDS
 } from '../constants';
@@ -67,8 +69,18 @@ export default function AdminPanel({ month, addToast }) {
   };
 
   const handleSaveTargets = () => {
+    const alreadyEntered = getTransactions(selectedMonth).length;
     setTargets(selectedMonth, targetValues);
-    addToast(`${formatMonth(selectedMonth)} hedefleri kaydedildi ve tüm cihazlara güncellendi! ✅`, 'success');
+
+    const hasValues = Object.values(targetValues || {}).some(value => (value || 0) > 0);
+    if (alreadyEntered > 0 && hasValues) {
+      addToast(
+        `${formatMonth(selectedMonth)} hedefleri kaydedildi — bu ayda girilmiş ${alreadyEntered} işlem hedeften düşmeye başladı! ✅`,
+        'success'
+      );
+    } else {
+      addToast(`${formatMonth(selectedMonth)} hedefleri kaydedildi ve tüm cihazlara güncellendi! ✅`, 'success');
+    }
   };
 
   const handleDeleteTx = (id) => {
@@ -170,16 +182,17 @@ export default function AdminPanel({ month, addToast }) {
     );
   }
 
-  // Generate month list for selection
+  // Ay listesi: önceki ay + bu ay + gelecek 3 ay + verisi/hedefi olan tüm geçmiş aylar
   const currentM = getCurrentMonth();
-  const monthList = [];
-  for (let i = -1; i <= 3; i++) {
-    const d = new Date();
-    d.setMonth(d.getMonth() + i);
-    monthList.push(d.toISOString().slice(0, 7));
-  }
+  const monthList = Array.from(new Set([
+    ...[-1, 0, 1, 2, 3].map(offset => shiftMonth(currentM, offset)),
+    ...getMonthSummaries().map(item => item.month),
+  ])).sort((a, b) => (a < b ? 1 : -1));
 
   const allTx = getTransactions(selectedMonth);
+  // Bu ay girilmiş işlem sayısı ve hedeflerin girilip girilmediği
+  const enteredThisMonth = allTx.length;
+  const targetsReadyNow = Object.values(targetValues || {}).some(value => (value || 0) > 0);
   let filteredTx = allTx;
   if (filterUser !== 'all') filteredTx = filteredTx.filter(t => t.userName === filterUser);
   if (filterCategory !== 'all') filteredTx = filteredTx.filter(t => t.category === filterCategory);
@@ -263,6 +276,17 @@ export default function AdminPanel({ month, addToast }) {
             </h3>
             <p className="text-[11px] text-surface-200/50">
               Bu hedefler tüm ay boyunca sabit kalır ve girilen işlemlerden düşer.
+            </p>
+          </div>
+
+          <div className={`p-3 rounded-xl border ${targetsReadyNow ? 'bg-emerald-500/10 border-emerald-500/25' : 'bg-amber-500/10 border-amber-500/30'}`}>
+            <p className={`text-[11px] font-bold ${targetsReadyNow ? 'text-emerald-300' : 'text-amber-300'}`}>
+              {targetsReadyNow ? '✅ Hedefler aktif' : '🎯 Hedefler henüz girilmedi'}
+              <span className="text-surface-200/50 font-semibold"> • {formatMonth(selectedMonth)} ayında girilmiş işlem: {enteredThisMonth}</span>
+            </p>
+            <p className="text-[10px] text-surface-200/60 mt-1">
+              Kaydettiğiniz an bu ayda daha önce girilmiş {enteredThisMonth} işlem dahil tüm işlemler
+              otomatik olarak hedeften düşülür; geçmişe dönük hesaplanır ve tüm cihazlara yayınlanır.
             </p>
           </div>
 

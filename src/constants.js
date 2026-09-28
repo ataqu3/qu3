@@ -39,7 +39,63 @@ export const USER_COLORS = {
 // Admin şifresi: Vercel/yerel ortamda VITE_ADMIN_PASSWORD tanımlıysa o kullanılır, aksi halde varsayılan.
 export const ADMIN_PASSWORD = import.meta.env?.VITE_ADMIN_PASSWORD || '3511';
 
-export const getCurrentMonth = () => new Date().toISOString().slice(0, 7);
+// --- Yerel saat dilimine göre tarih/ay yardımcıları (UTC kayması olmadan) ---
+const pad2 = (n) => String(n).padStart(2, '0');
+
+// Ayın 1'inde otomatik olarak yeni aya geçer (yerel saat)
+export const getCurrentMonth = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`;
+};
+
+// Bir tarihin yerel gün anahtarı: 'YYYY-MM-DD'
+export const getLocalDayKey = (dateInput = new Date()) => {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+};
+
+// Bugünün gün anahtarı
+export const getCurrentDay = () => getLocalDayKey(new Date());
+
+// 'YYYY-MM' -> o aydaki gün sayısı
+export const getDaysInMonth = (month) => {
+  const [year, m] = month.split('-').map(Number);
+  return new Date(year, m, 0).getDate();
+};
+
+// 'YYYY-MM' ayını delta kadar kaydırır
+export const shiftMonth = (month, delta) => {
+  const [year, m] = month.split('-').map(Number);
+  const d = new Date(year, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
+};
+
+// 'YYYY-MM-DD' gününü delta kadar kaydırır
+export const shiftDay = (dayKey, delta) => {
+  const [year, m, day] = dayKey.split('-').map(Number);
+  return getLocalDayKey(new Date(year, m - 1, day + delta));
+};
+
+// 'YYYY-MM-DD' -> "28 Eylül 2026 Pazartesi"
+export const formatDay = (dayKey) => {
+  const [year, m, day] = dayKey.split('-').map(Number);
+  return new Date(year, m - 1, day).toLocaleDateString('tr-TR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    weekday: 'long',
+  });
+};
+
+// 'YYYY-MM-DD' -> "Bugün" / "Dün" / "Yarın" / "28 Eylül 2026"
+export const getDayLabel = (dayKey) => {
+  const today = getCurrentDay();
+  if (dayKey === today) return 'Bugün';
+  if (dayKey === shiftDay(today, -1)) return 'Dün';
+  if (dayKey === shiftDay(today, 1)) return 'Yarın';
+  return formatDay(dayKey);
+};
 
 export const formatMonth = (monthStr) => {
   const [year, month] = monthStr.split('-');
