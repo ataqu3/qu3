@@ -1,6 +1,6 @@
 // Database layer for B&B Bilişim Target Tracker
 // Provides instant offline-first storage in localStorage + real-time multi-device cloud synchronization
-// Compatible with Cloudflare Pages Functions (/api/data) and custom cloud sync
+// Works with Cloudflare Pages Functions and Vercel Functions (/api/data) cloud sync
 
 const DB_PREFIX = 'bvb_hedef_';
 const getKey = (key) => `${DB_PREFIX}${key}`;
@@ -198,7 +198,7 @@ export const triggerCloudPush = async () => {
       syncStatus = {
         connected: true,
         lastSync: new Date().toISOString(),
-        storageType: result.storage || 'Cloudflare',
+        storageType: result.storage || 'Bulut',
       };
       window.dispatchEvent(new CustomEvent('sync-status-change', { detail: syncStatus }));
     }
@@ -252,7 +252,7 @@ export const syncWithCloud = async () => {
       syncStatus = {
         connected: true,
         lastSync: new Date().toISOString(),
-        storageType: cloudData.isCloudReady ? 'Cloudflare KV/D1' : 'Local-Online',
+        storageType: cloudData.isCloudReady ? 'Bulut Veritabanı (KV/Redis)' : 'Local-Online',
       };
 
       if (hasChanges) {

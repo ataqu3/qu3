@@ -478,7 +478,7 @@ export default function AdminPanel({ month, addToast }) {
           <div className="flex items-center justify-between pb-3 border-b border-surface-700/40">
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                <span>☁️</span> Cloudflare & Çoklu Cihaz Senkronizasyonu
+                <span>☁️</span> Bulut & Çoklu Cihaz Senkronizasyonu
               </h3>
               <p className="text-[10px] text-surface-200/50">Tüm çalışanların telefonları arasında anlık veri senkronizasyonu</p>
             </div>
@@ -504,7 +504,7 @@ export default function AdminPanel({ month, addToast }) {
           {/* Cloudflare Pages Deployment Guide */}
           <div className="space-y-2">
             <h4 className="text-xs font-bold text-primary-300 uppercase tracking-wider">
-              🚀 Cloudflare Pages'a Yükleme Adımları:
+              🚀 Cloudflare Pages'a Yükleme Adımları (Alternatif):
             </h4>
             <div className="space-y-2 text-xs text-surface-200/70">
               <div className="p-2.5 rounded-xl bg-surface-800/40 border border-surface-700/20">
@@ -536,6 +536,55 @@ export default function AdminPanel({ month, addToast }) {
               </div>
             </div>
           </div>
+
+          {/* Vercel Deployment Guide */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold text-primary-300 uppercase tracking-wider">
+              ▲ Vercel'e Yükleme Adımları (Upstash Redis):
+            </h4>
+            <div className="space-y-2 text-xs text-surface-200/70">
+              <div className="p-2.5 rounded-xl bg-surface-800/40 border border-surface-700/20">
+                <p className="font-bold text-white mb-1">1. Vercel'e Projeyi Bağlayın:</p>
+                <p className="text-[11px]">
+                  Vercel &gt; <b>Add New...</b> &gt; <b>Project</b> diyerek GitHub'daki <b>ataqu3/qu3</b> deposunu içe aktarın.
+                  Build komutu <b>npm run build</b> ve çıktı klasörü <b>dist</b> otomatik algılanır.
+                </p>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-surface-800/40 border border-surface-700/20">
+                <p className="font-bold text-white mb-1">2. Upstash Redis (Veritabanı) Kurun:</p>
+                <p className="text-[11px]">
+                  Vercel &gt; <b>Storage</b> &gt; <b>Marketplace</b> &gt; <b>Upstash for Redis</b> &gt; <b>Install</b> ile
+                  projenize bir Redis veritabanı ekleyin (bölge: <b>Frankfurt / fra1</b>).
+                </p>
+                <p className="text-[10px] text-surface-200/50 mt-1">
+                  Entegrasyon <b>KV_REST_API_URL</b> ve <b>KV_REST_API_TOKEN</b> değişkenlerini projeye otomatik ekler.
+                </p>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-surface-800/40 border border-surface-700/20">
+                <p className="font-bold text-white mb-1">3. Yeniden Deploy Edin:</p>
+                <p className="text-[11px]">
+                  Ortam değişkenleri yalnızca yeni dağıtımlarda geçerli olur: <b>Deployments</b> &gt; son dağıtım &gt; <b>Redeploy</b>.
+                </p>
+                <p className="text-[10px] text-amber-300 font-mono mt-0.5">
+                  vercel env pull .env.local &nbsp;/&nbsp; vercel dev
+                </p>
+                <p className="text-[10px] text-surface-200/50 mt-1">
+                  Bu komutlarla yerel bilgisayarınızdan da aynı veritabanına bağlanabilirsiniz.
+                </p>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-surface-800/40 border border-surface-700/20">
+                <p className="font-bold text-white mb-1">4. Kontrol Edin:</p>
+                <p className="text-[10px]">
+                  <b>https://proje-adiniz.vercel.app/api/data</b> adresi boş veri dönerse API hazırdır.
+                  İşlem girdikçe bu adreste <b>transactions</b> alanı dolmalıdır.
+                </p>
+              </div>
+            </div>
+          </div>
+
         </div>
       )}
 

@@ -66,5 +66,25 @@ Tarayıcınızda veya telefonunuzdan aynı Wi-Fi ağındayken açabilirsiniz:
    - Pages projenizin ayarlarında **Settings > Functions > KV namespace bindings** kısmına gidin.
    - Değişken adı: **`BVB_KV`** olarak bir KV namespace bağlayın. Artık tüm verileriniz Cloudflare bulutunda güvenle saklanır.
 
+### ▲ Vercel'e Yükleme (Önerilen) + Upstash Redis Veritabanı:
+
+1. **Projeyi GitHub'dan içe aktarın:**
+   - Vercel Dashboard > **Add New...** > **Project** > `ataqu3/qu3` deposunu seçin.
+   - Vite otomatik algılanır: **Build Command:** `npm run build`, **Output Directory:** `dist`.
+2. **Veritabanını (Upstash Redis) kurun:**
+   - Vercel Dashboard > **Storage** (Integrations) > **Marketplace** > **Upstash for Redis** > **Install** > projenizi seçin > bölge: **Frankfurt (fra1)** > **Create**.
+   - Entegrasyon projeye **`KV_REST_API_URL`** ve **`KV_REST_API_TOKEN`** ortam değişkenlerini otomatik ekler. `/api/data` fonksiyonu bu değişkenleri okur; `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` isimleri de desteklenir.
+   - CLI ile kurmak isterseniz: `npm i -g vercel` → `vercel link` → `vc i upstash/upstash-kv`
+3. **Yeniden dağıtın (Redeploy):** Ortam değişkenleri yalnızca **yeni** dağıtımlarda geçerli olur. **Deployments** > son dağıtım > **Redeploy**.
+4. **Doğrulayın:** `https://<proje-adiniz>.vercel.app/api/data` adresini açın. İlk açılışta `{"targets":null,"transactions":null,"isCloudReady":true}` görürsünüz; uygulamadan bir işlem girildiğinde aynı adreste **`transactions`** dolmaya başlar. Admin panelindeki durum rozetinde **Upstash Redis (Vercel)** yazar.
+5. **Yerelde test:** `vercel env pull .env.local` (değişkenleri indirir) → `vercel dev` (arayüz + canlı sunucu fonksiyonu birlikte çalışır).
+
+> ℹ️ **Not:** Vercel'in kendi **Vercel KV** ve **Vercel Postgres** ürünleri Aralık 2024'te kaldırıldı; yerine Marketplace üzerinden **Upstash Redis** ve **Neon Postgres** sunuluyor. Bu proje tek bir JSON dokümanı sakladığı için Redis en uygun ve en ekonomik çözümdür. İlişkisel veritabanı (Neon Postgres) tercih ederseniz `api/data.js` içindeki Redis çağrılarını `@neondatabase/serverless` ile SQL sorgularına çevirmeniz yeterlidir.
+
+> 🔀 Hem Cloudflare (`functions/api/data.js`) hem Vercel (`api/data.js`) sürümü aynı `/api/data` sözleşmesini kullanır. İki platformu aynı anda kullanırsanız iki ayrı veritabanı (Cloudflare KV ve Upstash Redis) oluşur; veriler birbirine karışmaz, tek bir platform tercih edin.
+
+---
+
+
 ---
 © 2026 B ve B Bilişim

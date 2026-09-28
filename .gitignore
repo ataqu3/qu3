@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Vercel CLI & ortam değişkenleri (gizli anahtarlar)
+.vercel
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
