@@ -3,7 +3,8 @@ import {
   getTargets, 
   setTargets, 
   getTransactions, 
-  deleteTransaction, 
+  deleteTransaction,
+  deleteTransactions,
   addTransaction, 
   exportData, 
   importData, 
@@ -39,6 +40,10 @@ export default function AdminPanel({ month, addToast }) {
   const [filterUser, setFilterUser] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [syncInfo, setSyncInfo] = useState(getSyncStatus());
+  // Toplu silme için çoklu seçim
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
   useEffect(() => {
     const handleSyncStatus = (e) => setSyncInfo(e.detail);
@@ -66,6 +71,9 @@ export default function AdminPanel({ month, addToast }) {
   const handleMonthChange = (m) => {
     setSelectedMonth(m);
     setTargetValues(getTargets(m));
+    setSelectedIds([]);
+    setSelectionMode(false);
+    setConfirmBulkDelete(false);
   };
 
   const handleSaveTargets = () => {
@@ -87,6 +95,29 @@ export default function AdminPanel({ month, addToast }) {
     deleteTransaction(id);
     setDeleteConfirmId(null);
     addToast('İşlem silindi ve hedeflerden düşüldü! 🗑️', 'success');
+  };
+
+  // --- Toplu silme yardımcıları ---
+  const toggleSelected = (id) => {
+    setSelectedIds(prev => (prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]));
+    setConfirmBulkDelete(false);
+  };
+
+  const selectAllFiltered = (list) => {
+    setSelectedIds(list.map(tx => tx.id));
+    setConfirmBulkDelete(false);
+  };
+
+  // Sadece ekranda görünen (filtreye uyan) seçili işlemler silinir.
+  // Not: 'filteredTx' render sırasında tanımlı olduğu için burada güvenle okunabilir.
+  const handleBulkDelete = () => {
+    const visibleIds = filteredTx.map(tx => tx.id);
+    const idsToDelete = selectedIds.filter(id => visibleIds.includes(id));
+    const count = deleteTransactions(idsToDelete);
+    setConfirmBulkDelete(false);
+    setSelectedIds([]);
+    setSelectionMode(false);
+    addToast(`${count} işlem tek seferde silindi ve hedeflerden düşüldü! 🗑️`, 'success');
   };
 
   const handleSaveEditedTx = () => {
@@ -410,6 +441,96 @@ export default function AdminPanel({ month, addToast }) {
             </div>
           </div>
 
+          {/* Toplu seçim & toplu silme araç çubuğu */}
+          <div className="glass-card p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectionMode(prev => !prev);
+                  setSelectedIds([]);
+                  setConfirmBulkDelete(false);
+                }}
+                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                  selectionMode
+                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                    : 'bg-surface-800 text-surface-200/70 hover:text-white border border-surface-700'
+                }`}
+              >
+                {selectionMode ? '✕ Toplu Seçimi Kapat' : '☑️ Toplu Seçim / Çoklu Silme'}
+              </button>
+
+              {selectionMode && (
+                <span className="text-[10px] font-black px-2 py-1 rounded-lg bg-primary-500/20 text-primary-300 border border-primary-500/30">
+                  {selectedIds.length} seçili
+                </span>
+              )}
+            </div>
+
+            {selectionMode && (
+              <div className="space-y-2 animate-slide-up">
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => selectAllFiltered(filteredTx)}
+                    disabled={filteredTx.length === 0}
+                    className="flex-1 px-2.5 py-2 rounded-xl bg-surface-800/70 border border-surface-700/50 text-[11px] font-bold text-surface-200/80 hover:text-white disabled:opacity-40 transition-all"
+                  >
+                    ☑️ Listelenenlerin tümünü seç ({filteredTx.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedIds([]);
+                      setConfirmBulkDelete(false);
+                    }}
+                    disabled={selectedIds.length === 0}
+                    className="px-3 py-2 rounded-xl bg-surface-800/70 border border-surface-700/50 text-[11px] font-bold text-surface-200/60 hover:text-white disabled:opacity-40 transition-all"
+                  >
+                    Temizle
+                  </button>
+                </div>
+
+                {confirmBulkDelete ? (
+                  <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/40 space-y-2">
+                    <p className="text-[11px] font-bold text-rose-200">
+                      ⚠️ {selectedIds.length} işlem kalıcı olarak silinecek ve hedeflerden düşülecek. Emin misiniz?
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleBulkDelete}
+                        className="flex-1 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-black active:scale-95 transition-all"
+                      >
+                        Evet, {selectedIds.length} işlemi sil
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmBulkDelete(false)}
+                        className="px-3 py-2.5 rounded-xl bg-surface-800 text-surface-200/70 text-[11px] font-bold"
+                      >
+                        İptal
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmBulkDelete(true)}
+                    disabled={selectedIds.length === 0}
+                    className="w-full py-2.5 rounded-xl bg-rose-500/90 hover:bg-rose-500 text-white text-[11px] font-black disabled:opacity-35 active:scale-[0.98] transition-all"
+                  >
+                    🗑️ Seçilen {selectedIds.length} işlemi sil
+                  </button>
+                )}
+
+                <p className="text-[9px] text-surface-200/40 text-center">
+                  İpucu: Kartlara dokunarak birden fazla işlem seçebilirsin, seçim kutucuğu kartın solundadır.
+                </p>
+              </div>
+            )}
+          </div>
+
           <p className="text-[10px] text-surface-200/50 text-center">{filteredTx.length} işlem kaydı listeleniyor</p>
 
           {/* List */}
@@ -423,8 +544,35 @@ export default function AdminPanel({ month, addToast }) {
               {filteredTx.map(tx => {
                 const cat = CATEGORIES.find(c => c.key === tx.category);
                 return (
-                  <div key={tx.id} className="glass-card p-3 border-surface-700/40">
+                  <div
+                    key={tx.id}
+                    onClick={selectionMode ? () => toggleSelected(tx.id) : undefined}
+                    className={`glass-card p-3 transition-all ${
+                      selectionMode && selectedIds.includes(tx.id)
+                        ? 'border-primary-500/60 bg-primary-500/10'
+                        : selectionMode
+                          ? 'border-surface-700/40 cursor-pointer'
+                          : 'border-surface-700/40'
+                    }`}
+                  >
                     <div className="flex items-start gap-2.5">
+                      {selectionMode && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSelected(tx.id);
+                          }}
+                          className={`w-6 h-6 rounded-lg border flex items-center justify-center text-xs flex-shrink-0 transition-all ${
+                            selectedIds.includes(tx.id)
+                              ? 'bg-primary-500 border-primary-400 text-white'
+                              : 'bg-surface-900/60 border-surface-600 text-transparent'
+                          }`}
+                        >
+                          ✓
+                        </button>
+                      )}
+
                       <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${USER_COLORS[tx.userName]} flex items-center justify-center text-base flex-shrink-0`}>
                         {USER_AVATARS[tx.userName]}
                       </div>
@@ -448,7 +596,8 @@ export default function AdminPanel({ month, addToast }) {
                         <p className="text-[9px] text-surface-200/30 mt-1">{formatDate(tx.createdAt)}</p>
                       </div>
 
-                      {/* Edit & Delete Controls */}
+                      {/* Edit & Delete Controls (toplu seçimde gizlenir) */}
+                      {!selectionMode && (
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <button
                           type="button"
@@ -487,6 +636,7 @@ export default function AdminPanel({ month, addToast }) {
                           </button>
                         )}
                       </div>
+                      )}
                     </div>
                   </div>
                 );

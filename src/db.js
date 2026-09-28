@@ -75,21 +75,32 @@ export const addTransaction = (transaction) => {
   return newTransaction;
 };
 
-export const deleteTransaction = (id) => {
+// Birden fazla işlemi tek seferde siler (toplu silme)
+// Not: Silinen kimlikler 'deleted_ids' listesine yazılır, bulut senkronizasyonunda geri gelmezler.
+export const deleteTransactions = (ids) => {
   initDB();
+  const idList = Array.from(new Set((ids || []).filter(Boolean)));
+  if (idList.length === 0) return 0;
+
   const transactions = JSON.parse(localStorage.getItem(getKey('transactions')) || '[]');
-  const filtered = transactions.filter(t => t.id !== id);
+  const filtered = transactions.filter(t => !idList.includes(t.id));
+  const removedCount = transactions.length - filtered.length;
+
+  if (removedCount === 0) return 0;
+
   localStorage.setItem(getKey('transactions'), JSON.stringify(filtered));
-  
-  // Track deleted IDs to prevent reviving them during remote sync
+
   const deletedIds = JSON.parse(localStorage.getItem(getKey('deleted_ids')) || '[]');
-  if (!deletedIds.includes(id)) {
-    deletedIds.push(id);
-    localStorage.setItem(getKey('deleted_ids'), JSON.stringify(deletedIds));
-  }
+  const mergedDeletedIds = Array.from(new Set([...deletedIds, ...idList]));
+  localStorage.setItem(getKey('deleted_ids'), JSON.stringify(mergedDeletedIds));
 
   window.dispatchEvent(new CustomEvent('db-change', { detail: { type: 'transactions' } }));
   triggerCloudPush();
+  return removedCount;
+};
+
+export const deleteTransaction = (id) => {
+  deleteTransactions([id]);
 };
 
 // LEADERBOARD
