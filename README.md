@@ -30,8 +30,8 @@ Bu uygulama, **B ve B Bilişim** ekibinin (Atakan, Murat, Büşra ve Eda) aylık
    - Kim, ne zaman, hangi işlemi yapmış herkes anlık akıştan görebilir.
    - Yanlış girilen bir işlem olursa çalışan kendi işlemini tek tıkla silebilir veya işlem girildikten sonra hemen "Geri Al" butonuna basabilir.
 
-6. **🔐 Admin Yönetim Paneli (Şifre: 3511):**
-   - Şifreli giriş: **`3511`**
+6. **🔐 Admin Yönetim Paneli (Şifreli Giriş):**
+   - Şifreli giriş: şifre ekranda hiçbir yerde gösterilmez. Varsayılan şifre koda tanımlıdır ve `VITE_ADMIN_PASSWORD` ortam değişkeni ile değiştirilebilir.
    - Aylık hedefleri kategori bazında düzenleme ve kaydetme.
    - Tüm çalışanların işlemlerini inceleme, yanlış kayıtları düzeltme veya silme.
    - Verileri tek tıkla JSON formatında yedekleme (İndir) ve geri yükleme.
@@ -40,6 +40,11 @@ Bu uygulama, **B ve B Bilişim** ekibinin (Atakan, Murat, Büşra ve Eda) aylık
 7. **☁️ Cloudflare & Çoklu Cihaz Senkronizasyonu:**
    - Her çalışanın telefonundan aynı verileri görmesi için Cloudflare Pages Functions (`/functions/api/data.js`) ve Cloudflare KV / D1 desteği entegre edilmiştir.
    - İnternet kesilse bile offline-first çalışır, bağlantı gelince otomatik senkronize olur.
+
+8. **🏆 Kategori Şampiyonları ("Liderler" sekmesi):**
+   - Her kategori (Mobil, DSL, TV, Cihaz, Diğer Cihaz) için **en çok yapan** ve **en az yapan** çalışanlar; isim, avatar ve işlem sayısıyla listelenir.
+   - Kart içinde 4 çalışanın kişi bazlı dağılım çubukları gösterilir (lider çubuk altın renkli).
+   - **İşlem türü sıralaması** paneli: Yeni Hat, Numara Taşıma, Sponsor ve 16–1000 Mbps DSL paketlerinde en çok / en az yapanlar.
 
 ---
 

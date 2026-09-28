@@ -50,7 +50,7 @@ export default function AdminPanel({ month, addToast }) {
       sessionStorage.setItem('bvb_admin_authed', 'true');
       addToast('Admin paneline hoş geldiniz! 🔓', 'success');
     } else {
-      addToast('Hatalı şifre! (Şifre: 3511) ❌', 'error');
+      addToast('Hatalı şifre! Tekrar deneyin ❌', 'error');
     }
     setPassword('');
   };
@@ -151,7 +151,7 @@ export default function AdminPanel({ month, addToast }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                placeholder="Şifre (3511)"
+                placeholder="Şifre"
                 className="w-full bg-surface-800/80 border border-surface-700/60 rounded-xl px-4 py-3.5 text-center text-xl tracking-[0.5em] text-white placeholder:text-surface-200/30 placeholder:tracking-normal focus:outline-none focus:border-primary-500 transition-all font-mono"
                 autoFocus
               />

@@ -4,6 +4,7 @@ import UserSelect from './components/UserSelect';
 import Dashboard from './components/Dashboard';
 import AddTransaction from './components/AddTransaction';
 import TransactionHistory from './components/TransactionHistory';
+import CategoryLeaders from './components/CategoryLeaders';
 import AdminPanel from './components/AdminPanel';
 import BottomNav from './components/BottomNav';
 import Toast from './components/Toast';
@@ -68,6 +69,8 @@ export default function App() {
         return <AddTransaction currentUser={currentUser} month={currentMonth} addToast={addToast} />;
       case 'history':
         return <TransactionHistory key={refreshKey} currentUser={currentUser} month={currentMonth} addToast={addToast} />;
+      case 'leaders':
+        return <CategoryLeaders key={refreshKey} month={currentMonth} />;
       case 'admin':
         return <AdminPanel key={refreshKey} month={currentMonth} addToast={addToast} />;
       default:

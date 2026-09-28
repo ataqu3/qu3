@@ -36,7 +36,8 @@ export const USER_COLORS = {
   Eda: 'from-amber-500 to-orange-500',
 };
 
-export const ADMIN_PASSWORD = '3511';
+// Admin şifresi: Vercel/yerel ortamda VITE_ADMIN_PASSWORD tanımlıysa o kullanılır, aksi halde varsayılan.
+export const ADMIN_PASSWORD = import.meta.env?.VITE_ADMIN_PASSWORD || '3511';
 
 export const getCurrentMonth = () => new Date().toISOString().slice(0, 7);
 

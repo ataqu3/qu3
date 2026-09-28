@@ -2,6 +2,8 @@
 // Provides instant offline-first storage in localStorage + real-time multi-device cloud synchronization
 // Works with Cloudflare Pages Functions and Vercel Functions (/api/data) cloud sync
 
+import { USERS, CATEGORIES, MOBIL_SUB_CATEGORIES, DSL_SPEEDS } from './constants';
+
 const DB_PREFIX = 'bvb_hedef_';
 const getKey = (key) => `${DB_PREFIX}${key}`;
 
@@ -134,6 +136,69 @@ export const getUserCategoryTotals = (month, userName) => {
     Cihaz: transactions.filter(t => t.category === 'Cihaz').length,
     DigerCihaz: transactions.filter(t => t.category === 'DigerCihaz').length,
   };
+};
+
+// CATEGORY & SUB-CATEGORY LEADERS (her kategoride en çok / en az yapanlar)
+const buildRanking = (counts) => {
+  const total = counts.reduce((sum, item) => sum + item.count, 0);
+  const hasData = total > 0;
+  const maxCount = counts.length ? Math.max(...counts.map(c => c.count)) : 0;
+  const minCount = counts.length ? Math.min(...counts.map(c => c.count)) : 0;
+
+  return {
+    total,
+    top: {
+      count: maxCount,
+      users: hasData ? counts.filter(c => c.count === maxCount).map(c => c.userName) : [],
+    },
+    bottom: {
+      count: minCount,
+      users: hasData ? counts.filter(c => c.count === minCount).map(c => c.userName) : [],
+    },
+    counts: [...counts].sort((a, b) => b.count - a.count),
+  };
+};
+
+// Her ana kategori (Mobil, DSL, TV, Cihaz, Diğer Cihaz) için en çok ve en az yapanlar
+export const getCategoryLeaders = (month) => {
+  const transactions = getTransactions(month);
+
+  return CATEGORIES.map(cat => ({
+    category: cat.key,
+    label: cat.label,
+    icon: cat.icon,
+    color: cat.color,
+    ...buildRanking(
+      USERS.map(userName => ({
+        userName,
+        count: transactions.filter(t => t.userName === userName && t.category === cat.key).length,
+      }))
+    ),
+  }));
+};
+
+// İşlem türleri (Mobil: Yeni Hat/Numara Taşıma/Sponsor, DSL: hız paketleri) için en çok ve en az yapanlar
+export const getSubCategoryLeaders = (month) => {
+  const transactions = getTransactions(month);
+
+  const types = [
+    ...MOBIL_SUB_CATEGORIES.map(value => ({ category: 'Mobil', value, icon: '📱' })),
+    ...DSL_SPEEDS.map(speed => ({ category: 'DSL', value: `${speed} Mbps`, icon: '🌐' })),
+  ];
+
+  return types.map(({ category, value, icon }) => ({
+    category,
+    value,
+    icon,
+    ...buildRanking(
+      USERS.map(userName => ({
+        userName,
+        count: transactions.filter(
+          t => t.userName === userName && t.category === category && t.subCategory === value
+        ).length,
+      }))
+    ),
+  }));
 };
 
 // INDIVIDUAL TARGETS (Total targets divided equally by 4 employees)
