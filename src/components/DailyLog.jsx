@@ -24,7 +24,7 @@ import {
 } from '../constants';
 
 // Günlük giriş sayfası: her gün temiz bir sayfa açılır, ay içindeki tüm işlemler toplu olarak da görülebilir
-export default function DailyLog({ currentUser, month, addToast }) {
+export default function DailyLog({ currentUser, month, addToast, readOnly = false }) {
   const [mode, setMode] = useState('daily'); // 'daily' | 'month'
   const [today, setToday] = useState(getCurrentDay());
   const [selectedDay, setSelectedDay] = useState(getCurrentDay());
@@ -180,9 +180,15 @@ export default function DailyLog({ currentUser, month, addToast }) {
               <div className="text-center py-6">
                 <span className="text-3xl block mb-1">🧼</span>
                 <p className="text-xs font-bold text-white mb-0.5">Bu gün için kayıt yok</p>
-                <p className="text-[10px] text-surface-200/45">
-                  Alttaki <b className="text-primary-300">+ (Ekle)</b> butonuyla ilk işlemi girebilirsin.
-                </p>
+                {readOnly ? (
+                  <p className="text-[10px] text-surface-200/45">
+                    📊 Yönetim hesabı salt-okunurdur — kayıtlar çalışanlar tarafından girilir.
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-surface-200/45">
+                    Alttaki <b className="text-primary-300">+ (Ekle)</b> butonuyla ilk işlemi girebilirsin.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1">

@@ -11,9 +11,9 @@ import {
 } from '../db';
 import { CATEGORIES, USERS, USER_AVATARS, USER_COLORS, CATEGORY_MAP, formatMonth, getTimeAgo } from '../constants';
 
-export default function Dashboard({ currentUser, month }) {
+export default function Dashboard({ currentUser, month, readOnly = false }) {
   // 'personal' (default: user's 1/4 share) or 'team' (total team 4-person target)
-  const [viewMode, setViewMode] = useState('personal');
+  const [viewMode, setViewMode] = useState(readOnly ? 'team' : 'personal');
   const [selectedUserDetail, setSelectedUserDetail] = useState(null);
 
   const teamTargets = getTargets(month);
@@ -81,6 +81,7 @@ export default function Dashboard({ currentUser, month }) {
       )}
 
       {/* Target View Mode Selector (Personal 1/4 vs Full Team) */}
+      {!readOnly && (
       <div className="grid grid-cols-2 gap-1.5 bg-surface-850/80 p-1 rounded-2xl border border-surface-700/40">
         <button
           type="button"
@@ -108,6 +109,7 @@ export default function Dashboard({ currentUser, month }) {
           <span className="truncate">Tüm Ekip Hedefi</span>
         </button>
       </div>
+      )}
 
       {/* Month & Target Status Banner */}
       <div className="glass-card p-4 relative overflow-hidden border-primary-500/20">
@@ -457,7 +459,7 @@ export default function Dashboard({ currentUser, month }) {
 
         {recentActivity.length === 0 ? (
           <p className="text-xs text-surface-200/40 text-center py-6">
-            Henüz işlem kaydedilmedi. İlk işlemi sen ekle! 🚀
+            {readOnly ? 'Henüz işlem kaydedilmedi.' : 'Henüz işlem kaydedilmedi. İlk işlemi sen ekle! 🚀'}
           </p>
         ) : (
           <div className="space-y-2 max-h-64 overflow-y-auto pr-1">

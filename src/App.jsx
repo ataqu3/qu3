@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { USERS, USER_AVATARS, USER_COLORS, formatMonth, getCurrentMonth } from './constants';
+import { LOGIN_ACCOUNTS, USER_AVATARS, USER_COLORS, formatMonth, getCurrentMonth, isManagementUser } from './constants';
 import UserSelect from './components/UserSelect';
 import Dashboard from './components/Dashboard';
 import AddTransaction from './components/AddTransaction';
 import CategoryLeaders from './components/CategoryLeaders';
 import DailyLog from './components/DailyLog';
 import MonthSelector from './components/MonthSelector';
+import ManagementPanel from './components/ManagementPanel';
 import AdminPanel from './components/AdminPanel';
 import BottomNav from './components/BottomNav';
 import Toast from './components/Toast';
@@ -15,6 +16,8 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     return localStorage.getItem('bvb_current_user') || null;
   });
+  // Yönetim hesabı: işlem giremez, sadece salt-okunur istatistikleri görür
+  const isManagement = isManagementUser(currentUser);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonth());
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
@@ -63,12 +66,20 @@ export default function App() {
     return () => clearInterval(timer);
   }, [selectedMonth, addToast]);
 
+  // Yönetim hesabında işlem ekleme ve admin paneli kapalıdır
+  useEffect(() => {
+    if (isManagement && (activeTab === 'add' || activeTab === 'admin')) {
+      setActiveTab('report');
+    }
+  }, [isManagement, activeTab]);
+
   const monthSummaries = getMonthSummaries();
-  const showMonthSelector = activeTab === 'dashboard' || activeTab === 'daily' || activeTab === 'leaders';
+  const showMonthSelector = activeTab === 'dashboard' || activeTab === 'daily' || activeTab === 'leaders' || activeTab === 'report';
 
   const handleUserSelect = (user) => {
     setCurrentUser(user);
     localStorage.setItem('bvb_current_user', user);
+    setActiveTab(isManagementUser(user) ? 'report' : 'dashboard');
     setShowSwitchUser(false);
   };
 
@@ -85,8 +96,10 @@ export default function App() {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'report':
+        return <ManagementPanel key={`${selectedMonth}-${refreshKey}`} month={selectedMonth} />;
       case 'dashboard':
-        return <Dashboard key={`${selectedMonth}-${refreshKey}`} currentUser={currentUser} month={selectedMonth} />;
+        return <Dashboard key={`${selectedMonth}-${refreshKey}`} currentUser={currentUser} month={selectedMonth} readOnly={isManagement} />;
       case 'add':
         return <AddTransaction currentUser={currentUser} month={currentMonth} addToast={addToast} />;
       case 'daily':
@@ -97,6 +110,7 @@ export default function App() {
             currentUser={currentUser}
             month={selectedMonth}
             addToast={addToast}
+            readOnly={isManagement}
           />
         );
       case 'leaders':
@@ -104,7 +118,7 @@ export default function App() {
       case 'admin':
         return <AdminPanel key={refreshKey} month={currentMonth} addToast={addToast} />;
       default:
-        return <Dashboard key={`${selectedMonth}-${refreshKey}`} currentUser={currentUser} month={selectedMonth} />;
+        return <Dashboard key={`${selectedMonth}-${refreshKey}`} currentUser={currentUser} month={selectedMonth} readOnly={isManagement} />;
     }
   };
 
@@ -123,7 +137,9 @@ export default function App() {
                 <h1 className="text-sm font-black gradient-text tracking-tight">B&B Bilişim</h1>
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Sistem Canlı ve Hazır" />
               </div>
-              <p className="text-[10px] text-surface-200/50 font-semibold">Hedef Takip Sistemi</p>
+              <p className="text-[10px] text-surface-200/50 font-semibold">
+                {isManagement ? '📊 Yönetim Raporu • Salt-Okunur' : 'Hedef Takip Sistemi'}
+              </p>
             </div>
           </div>
 
@@ -171,7 +187,7 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-2 gap-2 mb-4">
-              {USERS.map(user => {
+              {LOGIN_ACCOUNTS.map(user => {
                 const isCurrent = user === currentUser;
                 return (
                   <button
@@ -203,7 +219,7 @@ export default function App() {
       )}
 
       {/* Bottom Navigation */}
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} isManagement={isManagement} />
 
       {/* Toast Notifications */}
       <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 w-[92%] max-w-sm pointer-events-none">

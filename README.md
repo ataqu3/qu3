@@ -53,6 +53,12 @@ Bu uygulama, **B ve B Bilişim** ekibinin (Atakan, Murat, Büşra ve Eda) aylık
    - **Her ayın 1'inde otomatik olarak yeni ay başlar** (işlemler yeni aya yazılır), geçmiş aylar silinmez. Panel / Günlük / Liderler sayfalarındaki **ay seçiciden** istenilen geçmiş ay incelenebilir.
    - **Hedef mantığı:** İşlemler ayın 1'inden itibaren girilmeye başlar, hedefler ise ayın 6-7'sinde girilir. Hedefler girilene kadar panelde **"🎯 Hedef Bekleniyor"** uyarısı ve "girilen işlemler hedef girilince otomatik düşecek" bilgisi görünür. Admin hedefleri kaydettiği **an** o ayda daha önce girilmiş tüm işlemler **geçmişe dönük olarak** hedeften düşülür.
 
+10. **🧑‍💼 Yönetim Hesabı (Salt-Okunur):**
+   - Giriş ekranında 4 çalışanın altında ayrı bir **"Yönetim"** hesabı bulunur (📊 SALT-OKUNUR etiketiyle).
+   - **İşlem giremez**, kayıt düzenleyemez/silemez; alt menüde "Ekle" ve "Admin" sekmeleri görünmez, girişte doğrudan **Rapor** sekmesi açılır.
+   - **Rapor** sekmesi: Hedef / Yapılan / Kalan / Tamamlanma %'si, "kalan gün + günde kaç işlem gerekiyor" temposu, **Ne Kadar Eksiğiz?** özeti (toplam eksik, en çok eksik kalan kategori, en çok geride kalan çalışan, en iyi giden kategori, işlem girilen gün sayısı), **kategori bazlı durum** (yapılan/hedef, kalan, günlük gereken tempo) ve **"Kim Ne Yapmış?"** tablosu (kişi bazlı yapılan, hedefi, kalanı, yüzdesi, son işlemi ve kategori kırılımı).
+   - Aynı hesap **Panel / Günlük / Liderler** sekmelerini de salt-okunur görebilir; tüm istatistikler 4 çalışan üzerinden hesaplanır, yönetim hesabı hiçbir sıralamaya veya hedefe dahil edilmez.
+
 ---
 
 ## 🛠️ Nasıl Çalıştırılır?

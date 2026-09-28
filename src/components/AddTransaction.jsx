@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { addTransaction, deleteTransaction } from '../db';
-import { CATEGORIES, MOBIL_SUB_CATEGORIES, DSL_SPEEDS, CATEGORY_MAP, formatMonth } from '../constants';
+import { CATEGORIES, MOBIL_SUB_CATEGORIES, DSL_SPEEDS, CATEGORY_MAP, formatMonth, isManagementUser } from '../constants';
 
 export default function AddTransaction({ currentUser, month, addToast }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -18,6 +18,12 @@ export default function AddTransaction({ currentUser, month, addToast }) {
   };
 
   const handleSubmit = () => {
+    // Yönetim hesabı işlem giremez (salt-okunur)
+    if (isManagementUser(currentUser)) {
+      addToast('Yönetim hesabı işlem giremez, sadece istatistikleri görür 📊', 'error');
+      return;
+    }
+
     if (!selectedCategory) {
       addToast('Lütfen bir kategori seçin!', 'error');
       return;

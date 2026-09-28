@@ -2,6 +2,14 @@
 
 export const USERS = ['Atakan', 'Murat', 'Busra', 'Eda'];
 
+// Yönetim hesabı: işlem giremez, sadece istatistikleri görür (salt-okunur)
+export const MANAGEMENT_USER = 'Yönetim';
+
+// Giriş ekranında seçilebilecek hesaplar (4 çalışan + yönetim)
+export const LOGIN_ACCOUNTS = [...USERS, MANAGEMENT_USER];
+
+export const isManagementUser = (userName) => userName === MANAGEMENT_USER;
+
 export const CATEGORIES = [
   { key: 'Mobil', label: 'Mobil', icon: '📱', color: 'from-blue-500 to-cyan-400' },
   { key: 'DSL', label: 'DSL', icon: '🌐', color: 'from-green-500 to-emerald-400' },
@@ -27,6 +35,7 @@ export const USER_AVATARS = {
   Murat: '👨‍🔧',
   Busra: '👩‍💼',
   Eda: '👩‍🎨',
+  Yönetim: '🧑‍💼',
 };
 
 export const USER_COLORS = {
@@ -34,6 +43,7 @@ export const USER_COLORS = {
   Murat: 'from-emerald-500 to-teal-500',
   Busra: 'from-pink-500 to-rose-500',
   Eda: 'from-amber-500 to-orange-500',
+  Yönetim: 'from-slate-500 to-slate-700',
 };
 
 // Admin şifresi: Vercel/yerel ortamda VITE_ADMIN_PASSWORD tanımlıysa o kullanılır, aksi halde varsayılan.
