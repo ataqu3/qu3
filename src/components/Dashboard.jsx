@@ -3,13 +3,15 @@ import {
   getTargets, 
   getCategoryTotals, 
   getLeaderboard, 
+  getDailyLeaderboard,
+  getDayTotals,
   getRecentActivity, 
   getTransactions, 
   getIndividualTargets, 
   getUserCategoryTotals,
   hasTargets
 } from '../db';
-import { CATEGORIES, USERS, USER_AVATARS, USER_COLORS, CATEGORY_MAP, formatMonth, getTimeAgo } from '../constants';
+import { CATEGORIES, USERS, USER_AVATARS, USER_COLORS, CATEGORY_MAP, formatMonth, getCurrentMonth, getCurrentDay, getTimeAgo } from '../constants';
 
 export default function Dashboard({ currentUser, month, readOnly = false }) {
   // 'personal' (default: user's 1/4 share) or 'team' (total team 4-person target)
@@ -35,7 +37,13 @@ export default function Dashboard({ currentUser, month, readOnly = false }) {
   const remainingTotal = Math.max(0, totalTarget - totalDone);
   const overallPercent = totalTarget > 0 ? Math.min(100, Math.round((totalDone / totalTarget) * 100)) : 0;
 
-  const topPerformer = leaderboard.length > 0 && leaderboard[0].totalCount > 0 ? leaderboard[0] : null;
+  // Taç ( lider) rozeti:
+  // - Bu ay görüntüleniyorken SADECE bugünün sayımına bakar -> her gece yarısı kendiliğinden sıfırlanır.
+  // - Geçmiş bir ay seçiliyken aylık sıralamaya düşer ve "Ayın Lideri" olarak görünür.
+  const isCurrentMonth = month === getCurrentMonth();
+  const todayTotal = getDayTotals(getCurrentDay()).total;
+  const leaderPool = isCurrentMonth ? getDailyLeaderboard() : leaderboard;
+  const topPerformer = leaderPool.length > 0 && leaderPool[0].totalCount > 0 ? leaderPool[0] : null;
 
   // Personal individual target total for each person
   const personalTotalTargetSum = Object.values(indTargets).reduce((a, b) => a + b, 0);
@@ -61,7 +69,10 @@ export default function Dashboard({ currentUser, month, readOnly = false }) {
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-amber-300">
-                    Günün Lideri
+                    {isCurrentMonth ? 'Günün Lideri' : 'Ayın Lideri'}
+                  </span>
+                  <span className="text-[9px] font-semibold text-amber-200/50">
+                    {isCurrentMonth ? '• her gün sıfırlanır' : `• ${formatMonth(month)}`}
                   </span>
                 </div>
                 <h3 className="text-base font-black text-white flex items-center gap-1.5">
@@ -72,9 +83,11 @@ export default function Dashboard({ currentUser, month, readOnly = false }) {
                 </h3>
               </div>
             </div>
-            <div className="text-right">
-              <span className="text-2xl">🔥</span>
-              <p className="text-[9px] text-amber-200/70 font-semibold">Hedefe Koşuyor</p>
+            <div className="text-right flex-shrink-0">
+              <p className="text-base font-black text-amber-200 leading-none">{todayTotal}</p>
+              <p className="text-[9px] text-amber-200/70 font-semibold">
+                {isCurrentMonth ? '🔥 bugün' : 'ay toplamı'}
+              </p>
             </div>
           </div>
         </div>

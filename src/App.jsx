@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { LOGIN_ACCOUNTS, USER_AVATARS, USER_COLORS, formatMonth, getCurrentMonth, isManagementUser } from './constants';
+import { LOGIN_ACCOUNTS, USER_AVATARS, USER_COLORS, formatMonth, getCurrentMonth, getCurrentDay, isManagementUser } from './constants';
 import UserSelect from './components/UserSelect';
 import Dashboard from './components/Dashboard';
 import AddTransaction from './components/AddTransaction';
@@ -22,6 +22,7 @@ export default function App() {
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonth());
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const knownMonthRef = useRef(getCurrentMonth());
+  const knownDayRef = useRef(getCurrentDay());
   const [toasts, setToasts] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [syncStatus, setSyncStatus] = useState(getSyncStatus());
@@ -50,18 +51,33 @@ export default function App() {
     }, 3200);
   }, []);
 
-  // Ayın 1'inde otomatik olarak yeni aya geçilir: işlemler yeni aya yazılır, geçmiş ay arşivde kalır
+  // Gün değişince günlük sayaçlar ve "Günün Lideri" kendiliğinden sıfırlanır,
+  // ayın 1'inde de otomatik olarak yeni aya geçilir: işlemler yeni aya yazılır, geçmiş ay arşivde kalır
   useEffect(() => {
     const timer = setInterval(() => {
+      const nowDay = getCurrentDay();
       const nowMonth = getCurrentMonth();
-      if (nowMonth === knownMonthRef.current) return;
+      const dayChanged = nowDay !== knownDayRef.current;
+      const monthChanged = nowMonth !== knownMonthRef.current;
+      if (!dayChanged && !monthChanged) return;
 
-      const wasViewingPreviousMonth = selectedMonth === knownMonthRef.current;
+      const previousMonth = knownMonthRef.current;
+      const wasViewingPreviousMonth = selectedMonth === previousMonth;
+
+      knownDayRef.current = nowDay;
       knownMonthRef.current = nowMonth;
-      setCurrentMonth(nowMonth);
-      if (wasViewingPreviousMonth) setSelectedMonth(nowMonth);
-      addToast(`Yeni ay başladı: ${formatMonth(nowMonth)} 🎉`, 'success');
-    }, 60000);
+
+      // Gece yarısı geçti: tüm ekran yeni güne göre yenilenir
+      setRefreshKey(prev => prev + 1);
+
+      if (monthChanged) {
+        setCurrentMonth(nowMonth);
+        if (wasViewingPreviousMonth) setSelectedMonth(nowMonth);
+        addToast(`Yeni ay başladı: ${formatMonth(nowMonth)} 🎉`, 'success');
+      } else {
+        addToast('Yeni gün başladı: günlük sayımlar sıfırlandı 🌅', 'success');
+      }
+    }, 30000);
 
     return () => clearInterval(timer);
   }, [selectedMonth, addToast]);

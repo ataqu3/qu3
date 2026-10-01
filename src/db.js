@@ -2,7 +2,7 @@
 // Provides instant offline-first storage in localStorage + real-time multi-device cloud synchronization
 // Works with Cloudflare Pages Functions and Vercel Functions (/api/data) cloud sync
 
-import { USERS, CATEGORIES, MOBIL_SUB_CATEGORIES, DSL_SPEEDS, getCurrentMonth, getDaysInMonth, getLocalDayKey } from './constants';
+import { USERS, CATEGORIES, MOBIL_SUB_CATEGORIES, DSL_SPEEDS, getCurrentMonth, getCurrentDay, getDaysInMonth, getLocalDayKey } from './constants';
 
 const DB_PREFIX = 'bvb_hedef_';
 const getKey = (key) => `${DB_PREFIX}${key}`;
@@ -10,10 +10,20 @@ const getKey = (key) => `${DB_PREFIX}${key}`;
 let isSyncing = false;
 let syncStatus = { connected: false, lastSync: null, storageType: 'local' };
 
+// Bozuk JSON okumalarında uygulamanın çökmesini engeller
+const safeParse = (raw, fallback) => {
+  try {
+    const value = JSON.parse(raw);
+    return value === null || value === undefined ? fallback : value;
+  } catch {
+    return fallback;
+  }
+};
+
 // Initialize default data if not exists
 export const initDB = () => {
   if (!localStorage.getItem(getKey('initialized'))) {
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const currentMonth = getCurrentMonth();
     const defaultTargets = {
       [currentMonth]: {
         Mobil: 50,
@@ -24,6 +34,7 @@ export const initDB = () => {
       }
     };
     localStorage.setItem(getKey('targets'), JSON.stringify(defaultTargets));
+    localStorage.setItem(getKey('targets_updated_at'), JSON.stringify({ [currentMonth]: Date.now() }));
     localStorage.setItem(getKey('transactions'), JSON.stringify([]));
     localStorage.setItem(getKey('deleted_ids'), JSON.stringify([]));
     localStorage.setItem(getKey('initialized'), 'true');
@@ -33,15 +44,22 @@ export const initDB = () => {
 // TARGETS
 export const getTargets = (month) => {
   initDB();
-  const targets = JSON.parse(localStorage.getItem(getKey('targets')) || '{}');
+  const targets = safeParse(localStorage.getItem(getKey('targets')), {});
   return targets[month] || { Mobil: 0, DSL: 0, TV: 0, Cihaz: 0, DigerCihaz: 0 };
 };
 
 export const setTargets = (month, targets) => {
   initDB();
-  const allTargets = JSON.parse(localStorage.getItem(getKey('targets')) || '{}');
+  const allTargets = safeParse(localStorage.getItem(getKey('targets')), {});
   allTargets[month] = targets;
   localStorage.setItem(getKey('targets'), JSON.stringify(allTargets));
+
+  // Hedef zaman damgası: aynı ay için iki cihaz çakışırsa en son yazan kazanır,
+  // böylece bayat bulut verisi yeni girilen hedefi geri almaz.
+  const stamps = safeParse(localStorage.getItem(getKey('targets_updated_at')), {});
+  stamps[month] = Date.now();
+  localStorage.setItem(getKey('targets_updated_at'), JSON.stringify(stamps));
+
   window.dispatchEvent(new CustomEvent('db-change', { detail: { type: 'targets' } }));
   triggerCloudPush();
 };
@@ -49,19 +67,19 @@ export const setTargets = (month, targets) => {
 // TRANSACTIONS
 export const getTransactions = (month) => {
   initDB();
-  const transactions = JSON.parse(localStorage.getItem(getKey('transactions')) || '[]');
+  const transactions = safeParse(localStorage.getItem(getKey('transactions')), []);
   if (!month) return transactions;
   return transactions.filter(t => t.month === month);
 };
 
 export const getAllTransactions = () => {
   initDB();
-  return JSON.parse(localStorage.getItem(getKey('transactions')) || '[]');
+  return safeParse(localStorage.getItem(getKey('transactions')), []);
 };
 
 export const addTransaction = (transaction) => {
   initDB();
-  const transactions = JSON.parse(localStorage.getItem(getKey('transactions')) || '[]');
+  const transactions = safeParse(localStorage.getItem(getKey('transactions')), []);
   const newTransaction = {
     ...transaction,
     id: Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8),
@@ -82,7 +100,7 @@ export const deleteTransactions = (ids) => {
   const idList = Array.from(new Set((ids || []).filter(Boolean)));
   if (idList.length === 0) return 0;
 
-  const transactions = JSON.parse(localStorage.getItem(getKey('transactions')) || '[]');
+  const transactions = safeParse(localStorage.getItem(getKey('transactions')), []);
   const filtered = transactions.filter(t => !idList.includes(t.id));
   const removedCount = transactions.length - filtered.length;
 
@@ -90,7 +108,7 @@ export const deleteTransactions = (ids) => {
 
   localStorage.setItem(getKey('transactions'), JSON.stringify(filtered));
 
-  const deletedIds = JSON.parse(localStorage.getItem(getKey('deleted_ids')) || '[]');
+  const deletedIds = safeParse(localStorage.getItem(getKey('deleted_ids')), []);
   const mergedDeletedIds = Array.from(new Set([...deletedIds, ...idList]));
   localStorage.setItem(getKey('deleted_ids'), JSON.stringify(mergedDeletedIds));
 
@@ -104,11 +122,11 @@ export const deleteTransaction = (id) => {
 };
 
 // LEADERBOARD
+// Aylık sıralama (Dashboard'daki "Çalışan Sıralaması" ve yönetim raporu bunu kullanır)
 export const getLeaderboard = (month) => {
   const transactions = getTransactions(month);
-  const users = ['Atakan', 'Murat', 'Busra', 'Eda'];
-  
-  const leaderboard = users.map(user => {
+
+  const leaderboard = USERS.map(user => {
     const userTransactions = transactions.filter(t => t.userName === user);
     return {
       userName: user,
@@ -124,6 +142,19 @@ export const getLeaderboard = (month) => {
   });
   
   return leaderboard.sort((a, b) => b.totalCount - a.totalCount);
+};
+
+// GÜNLÜK SIRLAMA ("Günün Lideri" rozeti)
+// Yalnızca seçilen güne ait işlemleri sayar; gece yarısı kendiliğinden sıfırlanır.
+export const getDailyLeaderboard = (dayKey = getCurrentDay()) => {
+  const transactions = getDayTransactions(dayKey);
+
+  return USERS
+    .map(userName => ({
+      userName,
+      totalCount: transactions.filter(t => t.userName === userName).length,
+    }))
+    .sort((a, b) => b.totalCount - a.totalCount);
 };
 
 // CATEGORY TOTALS
@@ -218,13 +249,19 @@ export const getSubCategoryLeaders = (month) => {
 export const getTransactionDayKey = (tx) => tx.dayKey || getLocalDayKey(tx.createdAt);
 
 // Belirtilen güne ait işlemler (en yeniden en eskiye)
+// dayKey yetkili alandır; ay öneki yalnızca hız için kullanılır ve tutmazsa
+// tüm kayıtlar taranır (ay sınırında "dün"ün verisi kaybolmaz).
 export const getDayTransactions = (dayKey) => {
   if (!dayKey) return [];
-  const month = dayKey.slice(0, 7);
-  return getTransactions(month)
-    .filter(tx => getTransactionDayKey(tx) === dayKey)
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const inMonth = getTransactions(dayKey.slice(0, 7)).filter(tx => getTransactionDayKey(tx) === dayKey);
+  if (inMonth.length > 0) return sortByCreatedAtDesc(inMonth);
+
+  // Ay değişimi gibi uç durumlarda tüm kayıtlara bak
+  return sortByCreatedAtDesc(getAllTransactions().filter(tx => getTransactionDayKey(tx) === dayKey));
 };
+
+const sortByCreatedAtDesc = (list) => [...list].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
 // Belirtilen günün kategori bazlı özeti
 export const getDayTotals = (dayKey) => {
@@ -269,7 +306,7 @@ export const getMonthSummaries = () => {
 
   getAllTransactions().forEach(tx => { if (tx.month) months.add(tx.month); });
 
-  const targets = JSON.parse(localStorage.getItem(getKey('targets')) || '{}');
+  const targets = safeParse(localStorage.getItem(getKey('targets')), {});
   Object.keys(targets).forEach(month => { if (month) months.add(month); });
 
   months.add(getCurrentMonth());
@@ -306,148 +343,278 @@ export const getRecentActivity = (month, limit = 25) => {
 // EVENT LISTENER
 export const useDBListener = (callback) => {
   const handler = () => callback();
+  const storageHandler = (e) => {
+    if (e.key && e.key.startsWith(DB_PREFIX)) handler();
+  };
   window.addEventListener('db-change', handler);
-  window.addEventListener('storage', (e) => {
-    if (e.key && e.key.startsWith(DB_PREFIX)) {
-      handler();
-    }
-  });
+  window.addEventListener('storage', storageHandler);
   return () => {
     window.removeEventListener('db-change', handler);
-    window.removeEventListener('storage', handler);
+    window.removeEventListener('storage', storageHandler);
   };
 };
 
 // CLOUD SYNC ENGINE
+// Amaç: bir telefonda girilen işlem diğer telefonlarda saniyeler içinde görünsün.
+// Nasıl çalışır:
+//   1) Her yerel değişiklik "kirli" (dirty) işaretler ve kısa bir gecikmeyle buluta yazılır.
+//   2) Yazmadan hemen önce bulutun son hali çekilip yerel veriyle birleştirilir; böylece
+//      başka cihazın verisi ezilmez (last-write-wins tehlikesi yoktur).
+//   3) Düzenli aralıklarla bulut çekilir (pull) ve ekrana yansıtılır.
+// ÖNCEKİ HATA: push çağrısı "isSyncing" sırasında sessizce düşüyordu; girilen işlem
+// hiçbir zaman buluta ulaşmıyordu. Artık push asla düşmez: kirlilik bayrağı açık kalır
+// ve sonraki turda tekrar denenir.
+
+const SYNC_VISIBLE_MS = 3000;    // ekran açıkken çekme aralığı (anlık his)
+const SYNC_HIDDEN_MS = 15000;   // arka plandayken (pil dostu)
+const PUSH_DEBOUNCE_MS = 600;    // ardışık değişiklikleri tek gönderimde birleştir
+const CLOUD_TIMEOUT_MS = 10000;  // takılı istekte yoklamayı kilitlemesin
+const STATUS_EVENT_MIN_MS = 10000; // durum olayının en sık gönderilme aralığı
+
+let pushDirty = false;   // buluta gönderilmeyi bekleyen yerel değişiklik var mı
+let pushTimer = null;    // debounce zamanlayıcısı
+let changeSeq = 0;       // her yerel değişiklikte artar (push sırasında yeni değişiklik kontrolü)
+let pollTimer = null;
+let lastStatusEventAt = 0;
+
 export const getSyncStatus = () => syncStatus;
 
-export const triggerCloudPush = async () => {
-  if (isSyncing) return;
-  try {
-    const targets = JSON.parse(localStorage.getItem(getKey('targets')) || '{}');
-    const transactions = JSON.parse(localStorage.getItem(getKey('transactions')) || '[]');
-    const deletedIds = JSON.parse(localStorage.getItem(getKey('deleted_ids')) || '[]');
-    const payload = {
-      targets,
-      transactions,
-      deletedIds,
-      updatedAt: new Date().toISOString()
-    };
+// Yerel verinin tamamını tek bir anlık görüntü olarak okur
+const readLocalSnapshot = () => ({
+  targets: safeParse(localStorage.getItem(getKey('targets')), {}),
+  targetsUpdatedAt: safeParse(localStorage.getItem(getKey('targets_updated_at')), {}),
+  transactions: safeParse(localStorage.getItem(getKey('transactions')), []),
+  deletedIds: safeParse(localStorage.getItem(getKey('deleted_ids')), []),
+});
 
-    const res = await fetch('/api/data', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+// Hedefler: aynı ay için en son yazan cihazın değeri kazanır (bayat veri hedefi geri almaz)
+const mergeTargets = (localTargets, localStamps, remoteTargets, remoteStamps) => {
+  const targets = { ...localTargets };
+  const stamps = { ...localStamps };
 
-    if (res.ok) {
-      const result = await res.json();
-      syncStatus = {
-        connected: true,
-        lastSync: new Date().toISOString(),
-        storageType: result.storage || 'Bulut',
-      };
-      window.dispatchEvent(new CustomEvent('sync-status-change', { detail: syncStatus }));
+  Object.keys(remoteTargets || {}).forEach(month => {
+    const remoteValue = remoteTargets[month];
+    if (!remoteValue) return;
+    if ((remoteStamps?.[month] || 0) >= (localStamps?.[month] || 0)) {
+      targets[month] = remoteValue;
+      stamps[month] = remoteStamps[month];
     }
-  } catch {
-    // Silently continue in local-first mode
+  });
+
+  return { targets, stamps };
+};
+
+// Yerel ve bulut anlık görüntülerini birleştirir (silinen kayıtlar geri gelmez)
+const mergeSnapshots = (local, remote) => {
+  const deletedIds = Array.from(new Set([...(local.deletedIds || []), ...(remote.deletedIds || [])]));
+  const { targets, stamps } = mergeTargets(
+    local.targets,
+    local.targetsUpdatedAt,
+    remote.targets,
+    remote.targetsUpdatedAt
+  );
+
+  const txMap = new Map();
+  [...(remote.transactions || []), ...(local.transactions || [])].forEach(tx => {
+    if (!tx || !tx.id || deletedIds.includes(tx.id)) return;
+    const current = txMap.get(tx.id);
+    if (!current || String(tx.createdAt || '') >= String(current.createdAt || '')) txMap.set(tx.id, tx);
+  });
+
+  // Her cihazda aynı sıralama olsun ki "değişiklik var" yanlış sinyalleri üretilmesin
+  const transactions = Array.from(txMap.values()).sort((a, b) =>
+    String(a.createdAt || '').localeCompare(String(b.createdAt || '')) || String(a.id).localeCompare(String(b.id))
+  );
+
+  return { targets, targetsUpdatedAt: stamps, transactions, deletedIds };
+};
+
+// Birleşik durumu localStorage'a yazar; gerçekten bir şey değiştiyse true döner
+const applySnapshot = (snapshot) => {
+  const local = readLocalSnapshot();
+  let changed = false;
+
+  if (JSON.stringify(local.targets) !== JSON.stringify(snapshot.targets)) {
+    localStorage.setItem(getKey('targets'), JSON.stringify(snapshot.targets));
+    changed = true;
+  }
+  if (JSON.stringify(local.targetsUpdatedAt) !== JSON.stringify(snapshot.targetsUpdatedAt)) {
+    localStorage.setItem(getKey('targets_updated_at'), JSON.stringify(snapshot.targetsUpdatedAt));
+    changed = true;
+  }
+  if (JSON.stringify(local.deletedIds) !== JSON.stringify(snapshot.deletedIds)) {
+    localStorage.setItem(getKey('deleted_ids'), JSON.stringify(snapshot.deletedIds));
+    changed = true;
+  }
+  // Uzunluk değil İÇERİK karşılaştırılır: güncellenen kayıtlar da yakalanır
+  if (JSON.stringify(local.transactions) !== JSON.stringify(snapshot.transactions)) {
+    localStorage.setItem(getKey('transactions'), JSON.stringify(snapshot.transactions));
+    changed = true;
+  }
+
+  return changed;
+};
+
+// Durum değiştiğinde ekrana bildir (her yoklamada render tetiklememek için kısıtlı)
+const updateSyncStatus = (patch) => {
+  const next = { ...syncStatus, ...patch };
+  const meaningfulChange = next.connected !== syncStatus.connected || next.storageType !== syncStatus.storageType;
+  syncStatus = next;
+
+  const now = Date.now();
+  if (!meaningfulChange && now - lastStatusEventAt < STATUS_EVENT_MIN_MS) return;
+
+  lastStatusEventAt = now;
+  window.dispatchEvent(new CustomEvent('sync-status-change', { detail: syncStatus }));
+};
+
+// Buluttan güncel dokümanı çeker (önbellek ve takılma koruması ile)
+const fetchCloud = async () => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), CLOUD_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(`/api/data?_=${Date.now()}`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`Bulut okunamadı (${res.status})`);
+
+    const data = await res.json();
+    if (!data || data.error) throw new Error(data?.error || 'Bulut okunamadı');
+    return data;
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 
-export const syncWithCloud = async () => {
-  if (isSyncing) return;
+// Yerel değişiklikten sonra çağrılır: veriyi "gönderilmeyi bekliyor" işaretler ve kısa sürede yazar
+export const triggerCloudPush = () => {
+  pushDirty = true;
+  changeSeq += 1;
+
+  if (pushTimer) clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => {
+    pushTimer = null;
+    pushToCloud();
+  }, PUSH_DEBOUNCE_MS);
+};
+
+// Yerel değişiklikleri buluta yazar (göndermeden önce bulutla birleştirilir)
+const pushToCloud = async () => {
+  if (!pushDirty || isSyncing) return;
   isSyncing = true;
+  const seqAtStart = changeSeq;
+
   try {
-    const res = await fetch('/api/data');
-    if (!res.ok) throw new Error('API not available');
-    const cloudData = await res.json();
-
-    if (cloudData && (cloudData.transactions || cloudData.targets)) {
-      let hasChanges = false;
-      const localTargets = JSON.parse(localStorage.getItem(getKey('targets')) || '{}');
-      const localTransactions = JSON.parse(localStorage.getItem(getKey('transactions')) || '[]');
-      const localDeletedIds = JSON.parse(localStorage.getItem(getKey('deleted_ids')) || '[]');
-      
-      const remoteDeletedIds = cloudData.deletedIds || [];
-      const allDeletedIds = Array.from(new Set([...localDeletedIds, ...remoteDeletedIds]));
-      localStorage.setItem(getKey('deleted_ids'), JSON.stringify(allDeletedIds));
-
-      // Merge targets
-      if (cloudData.targets) {
-        const mergedTargets = { ...localTargets, ...cloudData.targets };
-        if (JSON.stringify(mergedTargets) !== JSON.stringify(localTargets)) {
-          localStorage.setItem(getKey('targets'), JSON.stringify(mergedTargets));
-          hasChanges = true;
-        }
-      }
-
-      // Merge transactions (union excluding deleted items)
-      if (Array.isArray(cloudData.transactions)) {
-        const txMap = new Map();
-        [...localTransactions, ...cloudData.transactions].forEach(tx => {
-          if (!allDeletedIds.includes(tx.id)) {
-            txMap.set(tx.id, tx);
-          }
-        });
-        const mergedTx = Array.from(txMap.values());
-        if (mergedTx.length !== localTransactions.length) {
-          localStorage.setItem(getKey('transactions'), JSON.stringify(mergedTx));
-          hasChanges = true;
-        }
-      }
-
-      syncStatus = {
-        connected: true,
-        lastSync: new Date().toISOString(),
-        storageType: cloudData.isCloudReady ? 'Bulut Veritabanı (KV/Redis)' : 'Local-Online',
-      };
-
-      if (hasChanges) {
+    // 1) Bulutun son halini çek ve yerelle birleştir (başka cihazın verisi korunur)
+    try {
+      const remote = await fetchCloud();
+      if (applySnapshot(mergeSnapshots(readLocalSnapshot(), remote))) {
         window.dispatchEvent(new CustomEvent('db-change', { detail: { type: 'cloud-merge' } }));
       }
-      window.dispatchEvent(new CustomEvent('sync-status-change', { detail: syncStatus }));
+    } catch {
+      // Bulut okunamıyorsa da göndermeyi dene; bağlantı gelince veri kurtarılır
     }
+
+    // 2) Birleşik dokümanı buluta yaz
+    const payload = { ...readLocalSnapshot(), updatedAt: new Date().toISOString() };
+    const res = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`Buluta yazılamadı (${res.status})`);
+
+    const result = await res.json().catch(() => ({}));
+
+    // Yazma sırasında yeni bir değişiklik olduysa kirlilik bayrağı açık kalır
+    if (changeSeq === seqAtStart) pushDirty = false;
+
+    updateSyncStatus({
+      connected: true,
+      lastSync: new Date().toISOString(),
+      storageType: result.storage || 'Bulut Veritabanı (KV/Redis)',
+    });
   } catch {
-    syncStatus = {
-      connected: false,
-      lastSync: syncStatus.lastSync,
-      storageType: 'Yerel Depolama (Offline-First)',
-    };
-    window.dispatchEvent(new CustomEvent('sync-status-change', { detail: syncStatus }));
+    // pushDirty true kalır: veri kaybolmaz, sonraki turda tekrar denenir
+    updateSyncStatus({ connected: false, storageType: 'Yerel Depolama (Offline-First)' });
   } finally {
     isSyncing = false;
   }
 };
 
+// Buluttan güncel veriyi çeker, yerelle birleştirir ve ekrana yansıtır
+export const syncWithCloud = async () => {
+  if (isSyncing) return;
+  isSyncing = true;
+
+  try {
+    const remote = await fetchCloud();
+
+    if (applySnapshot(mergeSnapshots(readLocalSnapshot(), remote))) {
+      window.dispatchEvent(new CustomEvent('db-change', { detail: { type: 'cloud-merge' } }));
+    }
+
+    updateSyncStatus({
+      connected: true,
+      lastSync: new Date().toISOString(),
+      storageType: remote.isCloudReady ? 'Bulut Veritabanı (KV/Redis)' : 'Local-Online',
+    });
+  } catch {
+    updateSyncStatus({ connected: false, storageType: 'Yerel Depolama (Offline-First)' });
+  } finally {
+    isSyncing = false;
+    // Yerelde bekleyen değişiklik varsa hemen yaz (hiçbir işlem bulutta kalmaz)
+    if (pushDirty) await pushToCloud();
+  }
+};
+
 // Automatic background sync scheduler (starts automatically)
+// Ekran açıkken 3 saniyede bir, arka plandayken 15 saniyede bir bulut kontrolü yapılır.
+const scheduleNextPoll = () => {
+  if (pollTimer) clearTimeout(pollTimer);
+  const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+  pollTimer = setTimeout(async () => {
+    await syncWithCloud();
+    scheduleNextPoll();
+  }, hidden ? SYNC_HIDDEN_MS : SYNC_VISIBLE_MS);
+};
+
 if (typeof window !== 'undefined') {
   initDB();
   // Immediate initial sync
-  setTimeout(syncWithCloud, 1000);
-  // Recurring polling every 5 seconds
-  setInterval(syncWithCloud, 5000);
-  // Sync when window becomes active/visible
-  window.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      syncWithCloud();
-    }
+  setTimeout(syncWithCloud, 800);
+  scheduleNextPoll();
+
+  // Sekme tekrar görünür olduğunda, ağ bağlantısı geldiğinde veya sayfa geri geldiğinde
+  // beklemeden çek: kullanıcı telefonu açtığı an güncel veriyi görür
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    syncWithCloud();
+    scheduleNextPoll();
   });
+  window.addEventListener('online', () => syncWithCloud());
+  window.addEventListener('focus', () => syncWithCloud());
+  window.addEventListener('pageshow', () => syncWithCloud());
 }
 
 // EXPORT / IMPORT
 export const exportData = () => {
   return {
-    targets: JSON.parse(localStorage.getItem(getKey('targets')) || '{}'),
-    transactions: JSON.parse(localStorage.getItem(getKey('transactions')) || '[]'),
-    deletedIds: JSON.parse(localStorage.getItem(getKey('deleted_ids')) || '[]'),
+    ...readLocalSnapshot(),
     exportedAt: new Date().toISOString(),
-    version: '2.0',
+    version: '2.1',
   };
 };
 
 export const importData = (data) => {
   if (data.targets) {
     localStorage.setItem(getKey('targets'), JSON.stringify(data.targets));
+  }
+  if (data.targetsUpdatedAt) {
+    localStorage.setItem(getKey('targets_updated_at'), JSON.stringify(data.targetsUpdatedAt));
   }
   if (data.transactions) {
     localStorage.setItem(getKey('transactions'), JSON.stringify(data.transactions));
@@ -461,6 +628,7 @@ export const importData = (data) => {
 
 export const resetAllData = () => {
   localStorage.removeItem(getKey('targets'));
+  localStorage.removeItem(getKey('targets_updated_at'));
   localStorage.removeItem(getKey('transactions'));
   localStorage.removeItem(getKey('deleted_ids'));
   localStorage.removeItem(getKey('initialized'));
